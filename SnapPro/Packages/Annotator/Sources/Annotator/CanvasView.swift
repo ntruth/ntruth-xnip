@@ -18,8 +18,10 @@ public struct EditorView: View {
                     context.draw(Image(decorative: cg, scale: 1, orientation: .up), at: .zero, anchor: .topLeading)
                 }
                 for shape in shapes {
-                    var shapeContext = context
-                    shape.draw(in: &shapeContext)
+                    context.drawLayer { layerContext in
+                        shape.draw(in: &layerContext)
+                    }
+
                 }
             }
             .frame(minWidth: 640, minHeight: 400)

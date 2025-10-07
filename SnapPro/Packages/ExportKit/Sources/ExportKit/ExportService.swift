@@ -24,19 +24,11 @@ public final class ExportService {
     }
 
     private func renderComposite(baseImage: NSImage, shapes: [any ShapeModel]) -> NSImage? {
-        let size = baseImage.size
-        let image = NSImage(size: size)
-        image.lockFocus()
-        baseImage.draw(in: NSRect(origin: .zero, size: size))
-        if let context = NSGraphicsContext.current?.cgContext {
-            var graphicsContext = GraphicsContext(context, flipped: false)
-            for shape in shapes {
-                var shapeContext = graphicsContext
-                shape.draw(in: &shapeContext)
-            }
-        }
-        image.unlockFocus()
-        return image
+        let renderer = ImageRenderer(content: AnnotatedCanvas(baseImage: baseImage, shapes: shapes))
+        renderer.proposedSize = .init(width: baseImage.size.width, height: baseImage.size.height)
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        return renderer.nsImage
+
     }
 
     private func exportPNG(baseImage: NSImage, shapes: [any ShapeModel], to url: URL) throws {
@@ -60,29 +52,35 @@ public final class ExportService {
     }
 
     private func exportPDF(baseImage: NSImage, shapes: [any ShapeModel], to url: URL) throws {
-        let data = NSMutableData()
-        guard let consumer = CGDataConsumer(data: data as CFMutableData) else {
+        guard let combined = renderComposite(baseImage: baseImage, shapes: shapes),
+              let pdfData = combined.dataWithPDF(inside: CGRect(origin: .zero, size: combined.size)) else {
             throw ExportError.renderFailed
         }
-        var mediaBox = CGRect(origin: .zero, size: baseImage.size)
-        guard let pdfContext = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
-            throw ExportError.renderFailed
-        }
-        pdfContext.beginPDFPage(nil)
-        if let cg = baseImage.cgImage() {
-            pdfContext.draw(cg, in: mediaBox)
-        }
-        var graphics = GraphicsContext(pdfContext, flipped: false)
-        for shape in shapes {
-            var shapeContext = graphics
-            shape.draw(in: &shapeContext)
-        }
-        pdfContext.endPDFPage()
-        pdfContext.closePDF()
-        try data.write(to: url, options: .atomic)
+        try pdfData.write(to: url, options: .atomic)
+
     }
 }
 
 public enum ExportError: Error {
     case renderFailed
 }
+
+private struct AnnotatedCanvas: View {
+    let baseImage: NSImage
+    let shapes: [any ShapeModel]
+
+    var body: some View {
+        Canvas { context, _ in
+            if let cgImage = baseImage.cgImage() {
+                context.draw(Image(decorative: cgImage, scale: 1, orientation: .up), at: .zero, anchor: .topLeading)
+            }
+            for shape in shapes {
+                context.drawLayer { layerContext in
+                    shape.draw(in: &layerContext)
+                }
+            }
+        }
+        .frame(width: baseImage.size.width, height: baseImage.size.height, alignment: .topLeading)
+    }
+}
+
