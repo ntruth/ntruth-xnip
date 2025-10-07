@@ -21,6 +21,7 @@ public struct EditorView: View {
                     context.drawLayer { layerContext in
                         shape.draw(in: &layerContext)
                     }
+
                 }
             }
             .frame(minWidth: 640, minHeight: 400)

@@ -28,6 +28,7 @@ public final class ExportService {
         renderer.proposedSize = .init(width: baseImage.size.width, height: baseImage.size.height)
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
         return renderer.nsImage
+
     }
 
     private func exportPNG(baseImage: NSImage, shapes: [any ShapeModel], to url: URL) throws {
@@ -56,6 +57,7 @@ public final class ExportService {
             throw ExportError.renderFailed
         }
         try pdfData.write(to: url, options: .atomic)
+
     }
 }
 
@@ -81,3 +83,4 @@ private struct AnnotatedCanvas: View {
         .frame(width: baseImage.size.width, height: baseImage.size.height, alignment: .topLeading)
     }
 }
+
